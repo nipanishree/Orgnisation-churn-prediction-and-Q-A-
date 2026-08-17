@@ -1,0 +1,318 @@
+[
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "End-to-End Customer Churn Prediction and RAG Q&A System\n=============================================================="
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Project Goal\n------------\nBuild an end-to-end data science and machine learning project that:\n1. Predicts customer churn.\n2. Provides a RAG-based Q&A system over project/customer-related documents.\n3. Exposes functionality through FastAPI.\n4. Uses experiment tracking.\n5. Is containerized with Docker.\n6. Includes CI/CD through GitHub Actions."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "6. Includes CI/CD through GitHub Actions.\n7. Handles configuration and secrets securely through environment variables."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Technology Stack\n----------------\n- Python 3.12\n- VS Code\n- Git and GitHub\n- Jupyter Notebook\n- pandas\n- NumPy\n- scikit-learn\n- matplotlib\n- seaborn\n- FastAPI\n- Uvicorn\n- Pydantic\n- SQLAlchemy\n- PostgreSQL / psycopg2-binary\n- python-dotenv\n- LangChain\n- sentence-transformers\n- PyTorch\n- pytest\n- pytest-cov\n- Ruff\n- Docker\n- GitHub Actions"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "- pytest\n- pytest-cov\n- Ruff\n- Docker\n- GitHub Actions\n- Vector database for RAG\n- Experiment tracking tool"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Project Structure\n-----------------\nproject-root/\n|\n|-- data/\n|   |-- raw/\n|   |   `-- Telco-Customer-Churn.csv\n|   `-- processed/\n|\n|-- notebooks/\n|   |-- 01_eda.ipynb\n|   |-- 02_preprocessing.ipynb\n|   |-- 03_model_training.ipynb\n|   `-- 04_model_evaluation.ipynb\n|\n|-- src/\n|   |-- data/\n|   |-- features/\n|   |-- models/\n|   |-- rag/"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "|   |-- features/\n|   |-- models/\n|   |-- rag/\n|   |-- api/\n|   `-- utils/\n|\n|-- tests/\n|   `-- test_basic.py\n|\n|-- models/\n|\n|-- configs/\n|\n|-- .github/\n|   `-- workflows/\n|\n|-- .env\n|-- .env.example\n|-- .gitignore\n|-- Dockerfile\n|-- pyproject.toml\n|-- README.md\n`-- docker-compose.yml"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Dataset\n-------\nDataset used for the churn prediction portion:\nTelco Customer Churn dataset.\n\nDataset size:\n- 7043 rows\n- 21 columns in the original dataset\n\nTarget:\n- Churn\n\nTarget distribution observed during EDA:\n- No: 5174\n- Yes: 1869"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Initial EDA Findings\n--------------------\nMissing values:\n- Initially, pandas did not report missing values in the raw string representation.\n- TotalCharges was stored as a string/object-like column.\n- After converting TotalCharges to numeric using pd.to_numeric(..., errors=\"coerce\"),\n  11 missing TotalCharges values were identified."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Duplicate rows:\n- 0 duplicate rows.\n\nUnique customer IDs:\n- 7043 unique customer IDs.\n\nImportant data-type observation:\n- tenure: int64\n- MonthlyCharges: float64\n- TotalCharges: string/object before conversion\n- SeniorCitizen: int64\n\nTotalCharges Handling\n---------------------\nTotalCharges should be converted to a numeric type:"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "df[\"TotalCharges\"] = pd.to_numeric(\n    df[\"TotalCharges\"],\n    errors=\"coerce\"\n)\n\nThe 11 resulting missing TotalCharges values correspond to customers with\ntenure = 0.\n\nThese rows should not automatically be deleted during EDA. Their treatment\nshould be decided during preprocessing."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Conceptual Feature Groups\n--------------------------\nIdentifier:\n- customerID\n\nNumerical:\n- tenure\n- MonthlyCharges\n- TotalCharges\n- SeniorCitizen"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Categorical:\n- gender\n- Partner\n- Dependents\n- PhoneService\n- MultipleLines\n- InternetService\n- OnlineSecurity\n- OnlineBackup\n- DeviceProtection\n- TechSupport\n- StreamingTV\n- StreamingMovies\n- Contract\n- PaperlessBilling\n- PaymentMethod\n\nTarget:\n- Churn\n\nCategorical Churn Findings\n--------------------------\nChurn rates observed from the EDA:"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Gender:\n- Female: 26.92%\n- Male: 26.16%\nObservation: very small difference.\n\nPartner:\n- No: 32.96%\n- Yes: 19.66%\nObservation: customers without a partner have higher observed churn.\n\nDependents:\n- No: 31.28%\n- Yes: 15.45%\nObservation: customers without dependents have higher observed churn."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "InternetService:\n- DSL: 18.96%\n- Fiber optic: 41.89%\n- No internet service: 7.40%\nObservation: Fiber optic customers have substantially higher observed churn.\n\nContract:\n- Month-to-month: 42.71%\n- One year: 11.27%\n- Two year: 2.83%\nObservation: contract type shows one of the strongest relationships with churn."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "PaymentMethod:\n- Bank transfer (automatic): 16.71%\n- Credit card (automatic): 15.24%\n- Electronic check: 45.29%\n- Mailed check: 19.11%\nObservation: electronic-check customers have substantially higher observed churn."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "TechSupport:\n- No: 41.64%\n- No internet service: 7.40%\n- Yes: 15.17%\nObservation: customers without tech support have higher observed churn.\n\nOnlineSecurity:\n- No: 41.77%\n- No internet service: 7.40%\n- Yes: 14.61%\nObservation: customers without online security have higher observed churn."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Important EDA Interpretation Rule\n----------------------------------\nThe above values are observed relationships/correlations in the dataset.\nThey should not be interpreted as proof of causation.\n\nFor example, a high churn rate for electronic check does not prove that\nchanging the payment method will cause churn to decrease."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Numerical EDA\n-------------\nNumerical variables investigated:\n- tenure\n- MonthlyCharges\n- TotalCharges\n- SeniorCitizen\n\nThe project should include:\n- describe()\n- histograms\n- boxplots\n- churn-group comparisons\n- correlation matrix\n- correlation heatmap\n- outlier inspection\n\nRecommended code for numerical summary:"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Recommended code for numerical summary:\n\ndf[[\"tenure\", \"MonthlyCharges\", \"TotalCharges\"]].describe()\n\nRecommended churn-group comparison:\n\ndf.groupby(\"Churn\")[\n    [\"tenure\", \"MonthlyCharges\", \"TotalCharges\"]\n].mean().round(2)\n\nRecommended correlation analysis:"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Recommended correlation analysis:\n\nnumerical_columns = [\n    \"tenure\",\n    \"MonthlyCharges\",\n    \"TotalCharges\",\n    \"SeniorCitizen\"\n]\n\ncorrelation_matrix = df[numerical_columns].corr()\n\nEDA Segmentation\n----------------\nCreate tenure groups for analysis:"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "df[\"tenure_group\"] = pd.cut(\n    df[\"tenure\"],\n    bins=[0, 12, 24, 36, 48, 60, 72],\n    labels=[\n        \"0-12\",\n        \"13-24\",\n        \"25-36\",\n        \"37-48\",\n        \"49-60\",\n        \"61-72\"\n    ],\n    include_lowest=True\n)\n\nCalculate churn rate by tenure group:"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Calculate churn rate by tenure group:\n\ntenure_churn_rate = (\n    pd.crosstab(\n        df[\"tenure_group\"],\n        df[\"Churn\"],\n        normalize=\"index\"\n    )[\"Yes\"] * 100\n).round(2)\n\nMonthly charge groups can also be created for EDA:"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Monthly charge groups can also be created for EDA:\n\ndf[\"monthly_charge_group\"] = pd.cut(\n    df[\"MonthlyCharges\"],\n    bins=[0, 30, 60, 90, 120],\n    labels=[\n        \"0-30\",\n        \"31-60\",\n        \"61-90\",\n        \"91-120\"\n    ],\n    include_lowest=True\n)"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Feature Interaction Analysis\n----------------------------\nInvestigate interactions such as:\n- Contract x InternetService\n- Contract x PaymentMethod\n- Other combinations that appear meaningful during EDA\n\nExample:"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Example:\n\ncontract_internet_churn = (\n    df.groupby(\n        [\"Contract\", \"InternetService\"],\n        observed=True\n    )[\"Churn\"]\n    .apply(lambda x: (x == \"Yes\").mean() * 100)\n    .round(2)\n)\n\nOutlier Analysis\n----------------\nInspect numerical variables using boxplots."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Do not automatically remove outliers simply because they exist.\nValues such as high MonthlyCharges may be legitimate customer values.\n\nMachine Learning Pipeline\n-------------------------\nAfter EDA, the planned ML workflow is:"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "1. Data validation\n2. Preprocessing\n3. Train/test split\n4. Feature transformation\n5. Baseline model\n6. Model training\n7. Model evaluation\n8. Hyperparameter tuning\n9. Experiment tracking\n10. Model selection\n11. Model serialization\n12. API integration"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Potential ML models:\n- Logistic Regression\n- Decision Tree\n- Random Forest\n- Gradient Boosting\n- Other suitable classification algorithms\n\nEvaluation should include more than accuracy because churn is a\nclassification problem with an imbalanced target.\n\nRecommended metrics:\n- Accuracy\n- Precision\n- Recall\n- F1-score\n- ROC-AUC\n- Confusion matrix"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "RAG System\n----------\nThe project also includes a Retrieval-Augmented Generation system.\n\nGoal:\nAllow users to upload multiple documents and ask questions related to those\ndocuments.\n\nExpected RAG flow:"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Expected RAG flow:\n\nDocuments\n   |\n   v\nDocument Upload\n   |\n   v\nDocument Parsing\n   |\n   v\nText Cleaning\n   |\n   v\nChunking\n   |\n   v\nEmbedding Model\n   |\n   v\nVector Database\n   |\n   v\nSimilarity Search\n   |\n   v\nRelevant Chunks\n   |\n   v\nLLM\n   |\n   v\nGrounded Answer + Sources"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Important RAG requirements:\n- Support multiple uploaded documents.\n- Store document chunks and embeddings in a vector database.\n- Retrieve relevant chunks for user queries.\n- Restrict answers to retrieved/contextual information.\n- Reduce hallucination by using grounding and source references.\n- Maintain document-level/user-level security."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "- Maintain document-level/user-level security.\n- Prevent one user's documents from being exposed to another user.\n- Validate uploaded files.\n- Avoid storing secrets in source code.\n- Log useful metadata without exposing sensitive document content."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "RAG Security\n------------\nSecurity should include:\n- Authentication/authorization where applicable.\n- User/document ownership checks.\n- Isolated document namespaces or metadata filters.\n- Secure environment variables.\n- Input validation.\n- File type and size validation.\n- Safe temporary file handling.\n- No secrets committed to Git."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "- No secrets committed to Git.\n- No unnecessary sensitive content in logs."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "FastAPI\n-------\nFastAPI will expose the application functionality.\n\nPossible API areas:\n\nPOST /documents/upload\n- Upload one or multiple documents.\n\nPOST /rag/query\n- Ask a question against authorized documents.\n\nPOST /predict\n- Send customer information and receive churn prediction.\n\nGET /health\n- Health check endpoint."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "GET /health\n- Health check endpoint.\n\nThe exact endpoint design can be refined during implementation.\n\nEnvironment Variables\n---------------------\nUse a .env file for local secrets/configuration.\n\nExample .env:\n\nAPP_ENV=development\nDATABASE_URL=your_database_url\nVECTOR_DB_URL=your_vector_database_url\nLLM_API_KEY=your_api_key"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Never commit the actual .env file.\n\nCreate .env.example with placeholders:\n\nAPP_ENV=development\nDATABASE_URL=\nVECTOR_DB_URL=\nLLM_API_KEY=\n\nGit should ignore:\n.env\n.venv/\n__pycache__/\n.ipynb_checkpoints/\ndata/raw/\nmodels/\n.pytest_cache/\n.coverage\nhtmlcov/\ndist/\nbuild/\n*.egg-info/"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Project Configuration\n---------------------\nThe project uses pyproject.toml.\n\nThe project package has been installed in editable mode and verified with:\n\npython -m pip show churn-prediction-qa\n\nThe editable project location is:\n\nC:\\ProjectsOrgnisation-churn-prediction-and-Q-A"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "C:\\ProjectsOrgnisation-churn-prediction-and-Q-A\n\nPython Environment\n------------------\nProject Python version:\n- Python 3.12.10\n\nThe virtual environment executable was verified with:\n\nimport sys\n\nprint(sys.version)\nprint(sys.executable)\n\nExpected executable location:\n\nC:\\ProjectsOrgnisation-churn-prediction-and-Q-A\\.venv\\Scripts\\python.exe"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Testing\n-------\npytest is configured with tests as the test path.\n\nInitial test run:\n- 0 tests were collected before test_basic.py existed.\n\nAfter adding tests/test_basic.py:\n- 2 tests passed.\n\nCurrent verification command:\n\npytest\n\nExpected result at this stage:\n\n2 passed\n\nLinting\n-------\nRuff is used for code quality.\n\nVerification command:"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Verification command:\n\nruff check .\n\nCurrent result:\n- All checks passed.\n\nGit and GitHub\n--------------\nRepository:\nOrgnisation-churn-prediction-and-Q-A\n\nThe local repository uses the main branch.\n\nRemote repository was configured and the initial project was pushed successfully.\n\nTypical workflow:"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Typical workflow:\n\ngit status\ngit add .\ngit commit -m \"Meaningful commit message\"\ngit push\n\nCI/CD\n-----\nGitHub Actions should be used to automate:\n- Dependency installation\n- Ruff checks\n- pytest\n- Optional build checks\n- Docker image build\n- Deployment workflow\n\nA workflow can be placed under:\n\n.github/workflows/\n\nExample future workflow:\nci.yml"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": ".github/workflows/\n\nExample future workflow:\nci.yml\n\nThe CI pipeline should fail when tests or linting fail.\n\nDocker\n------\nThe application should eventually be containerized."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Expected components:\n- Dockerfile\n- docker-compose.yml if multiple services are needed\n- FastAPI application\n- ML model\n- RAG components\n- Vector database\n- PostgreSQL if required\n\nDeployment\n----------\nThe final project should support deployment to a cloud environment."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Deployment design should include:\n- Environment variables/secrets\n- Container image\n- API service\n- Database\n- Vector database\n- Logging\n- Health checks\n- CI/CD deployment"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "End-to-End Development Roadmap\n-------------------------------\nPhase 1: Project Setup\n- Create project folder\n- Create virtual environment\n- Install Python 3.12\n- Configure VS Code\n- Initialize Git\n- Create .gitignore\n- Create pyproject.toml\n- Install project in editable mode\n- Configure Ruff and pytest"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Phase 2: Data\n- Add dataset to data/raw/\n- Load dataset\n- Validate schema\n- Perform EDA\n\nPhase 3: EDA\n- Data quality\n- Missing values\n- Duplicates\n- Target distribution\n- Numerical analysis\n- Categorical analysis\n- Churn-rate analysis\n- Correlation\n- Outliers\n- Feature interactions\n- EDA conclusions"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Phase 4: Preprocessing\n- Handle missing values\n- Encode categorical variables\n- Scale appropriate numerical variables\n- Separate features and target\n- Train/test split\n- Build reproducible preprocessing pipeline"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Phase 5: ML\n- Baseline model\n- Multiple models\n- Cross-validation\n- Evaluation\n- Hyperparameter tuning\n- Model selection\n- Save model artifact\n\nPhase 6: Experiment Tracking\n- Track parameters\n- Track metrics\n- Track model versions\n- Track artifacts\n- Compare experiments"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Phase 7: RAG\n- Document upload\n- Parsing\n- Chunking\n- Embeddings\n- Vector database\n- Retrieval\n- Prompt construction\n- Grounded generation\n- Source citations\n- Security\n\nPhase 8: API\n- FastAPI\n- Prediction endpoint\n- Document upload endpoint\n- RAG query endpoint\n- Health endpoint\n- Request/response schemas\n- Error handling"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Phase 9: Docker\n- Dockerfile\n- Build image\n- Run container\n- Environment configuration\n- Service dependencies\n\nPhase 10: CI/CD\n- GitHub Actions\n- Test\n- Lint\n- Build\n- Docker image\n- Deployment"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Phase 11: Production Readiness\n- Authentication\n- Authorization\n- Logging\n- Monitoring\n- Error handling\n- Data security\n- Model versioning\n- RAG security\n- Documentation"
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Current Project Status\n----------------------\nCompleted:\n- Git installed and repository initialized.\n- GitHub remote configured.\n- Initial push to GitHub completed.\n- Project folder renamed to:\n  C:\\ProjectsOrgnisation-churn-prediction-and-Q-A\n- Python 3.12.10 available.\n- Virtual environment using Python 3.12.10 verified."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "- Virtual environment using Python 3.12.10 verified.\n- pyproject.toml created and project installed in editable mode.\n- pytest configured.\n- 2 basic tests passing.\n- Ruff checks passing.\n- Dataset added under data/raw/.\n- 01_eda.ipynb created.\n- Initial EDA completed.\n- Missing TotalCharges issue identified.\n- Categorical churn analysis completed."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Current EDA conclusions so far:\n- Dataset contains 7043 customers.\n- 1869 customers churned and 5174 did not churn.\n- There are 0 duplicate rows.\n- There are 7043 unique customer IDs.\n- 11 TotalCharges values become missing after numeric conversion.\n- Those 11 customers have tenure = 0."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "- Those 11 customers have tenure = 0.\n- Contract, InternetService, PaymentMethod, TechSupport, OnlineSecurity,\n  Partner, and Dependents show meaningful observed differences in churn rates.\n- Gender shows only a small observed difference in churn rate."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "Next Immediate Steps\n--------------------\n1. Complete numerical EDA.\n2. Complete tenure-group churn analysis.\n3. Complete MonthlyCharges-group churn analysis.\n4. Complete correlation analysis.\n5. Complete feature-interaction analysis.\n6. Complete outlier inspection.\n7. Write final EDA conclusions.\n8. Create 02_preprocessing.ipynb."
+  },
+  {
+    "source": "churn_prediction_rag_project_notes.txt",
+    "text": "8. Create 02_preprocessing.ipynb.\n9. Build a reproducible preprocessing pipeline.\n10. Start baseline ML modeling."
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "# Customer Churn Prediction Project \u2014 Overview\n\n## Dataset"
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "The project uses the Telco Customer Churn dataset (`data/raw/Telco-Customer-Churn.csv`),\ncontaining 7,043 customers and 21 columns, including demographics (gender, senior citizen\nstatus, partner, dependents), account details (tenure, contract type, payment method,"
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "paperless billing), subscribed services (phone, internet, online security, backup, device\nprotection, tech support, streaming TV and movies), billing amounts (monthly charges, total\ncharges), and the target label `Churn` (Yes/No)."
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "## Exploratory Data Analysis (notebooks/01_eda.ipynb)"
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "- The dataset has no duplicate rows or duplicate customer IDs.\n- `TotalCharges` was loaded as text because 11 brand-new customers (tenure = 0) had blank\n  values instead of numbers; these were converted to numeric and filled with 0.\n- The target is imbalanced: about 26.5% of customers churned."
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "- Churned customers tend to have low tenure and higher monthly charges, and lower total\n  charges overall since they leave early.\n- The strongest churn drivers are month-to-month contracts, fiber optic internet, electronic\n  check payment, and lack of tech support or online security. Two-year contracts and"
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "automatic payment methods are associated with much lower churn."
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "## Preprocessing (notebooks/02_preprocessing.ipynb)"
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "The raw data is cleaned and encoded before modeling:\n1. Drop the `customerID` identifier column.\n2. Fix `TotalCharges` (coerce to numeric, fill missing values with 0).\n3. Collapse redundant categories: `\"No internet service\"` and `\"No phone service\"` are\n   merged into `\"No\"` across the affected columns, since they're fully implied by"
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "`InternetService` / `PhoneService`.\n4. Binary-encode all Yes/No columns (and `gender`) to 0/1.\n5. Ordinal-encode `Contract` (Month-to-month = 0, One year = 1, Two year = 2), since churn\n   rate strictly decreases in that order.\n6. One-hot encode the remaining nominal columns: `InternetService` and `PaymentMethod`."
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "7. Split into train/test (80/20), stratified on `Churn`, before any scaling to avoid leakage.\n8. Scale the numeric columns (`tenure`, `MonthlyCharges`, `TotalCharges`) with a\n   `StandardScaler` fit only on the training set."
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "Outputs: `data/processed/train.csv`, `data/processed/test.csv`, and `models/scaler.joblib`.\n\n## Model Training (notebooks/03_model_training.ipynb)"
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "## Model Training (notebooks/03_model_training.ipynb)\n\nThree models were compared with 5-fold stratified cross-validation on ROC-AUC: Logistic\nRegression, Random Forest, and Gradient Boosting. Gradient Boosting scored best (CV ROC-AUC\n\u2248 0.848) and was tuned further with a randomized hyperparameter search, reaching a test-set\nROC-AUC of 0.846."
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "Because Gradient Boosting doesn't support class weighting, its default 0.5 decision\nthreshold under-caught churners (recall 0.52). A better threshold (\u2248 0.277) was chosen using\nout-of-fold predictions on the training set only, raising churn recall to 0.77 on the test"
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "set at some cost to precision \u2014 a trade-off favoring catching more churners over minimizing\nfalse alarms."
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "The top predictors of churn, by feature importance, are `Contract`, `tenure`, and having\nfiber optic internet.\n\nArtifacts saved: `models/churn_model.joblib` (the trained Gradient Boosting model),\n`models/churn_model_threshold.json` (the chosen decision threshold), and\n`models/feature_columns.json` (the exact column order expected by the model)."
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "## Serving (api/)"
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "A FastAPI app in `api/main.py` exposes:\n- `GET /health` \u2014 basic liveness check.\n- `POST /predict` \u2014 accepts a customer's raw attributes (matching the original CSV\n  columns, validated against known categories via Pydantic), runs them through the same\n  preprocessing pipeline as training (`src/features/preprocessing.py`), and returns"
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "`{churn, churn_probability, threshold}`."
+  },
+  {
+    "source": "churn_project_overview.md",
+    "text": "The preprocessing and prediction logic lives in `src/features/` and `src/models/` so it's\nshared between the notebooks and the API rather than duplicated."
+  }
+]

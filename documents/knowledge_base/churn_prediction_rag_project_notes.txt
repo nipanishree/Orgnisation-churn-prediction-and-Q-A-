@@ -1,0 +1,749 @@
+End-to-End Customer Churn Prediction and RAG Q&A System
+==============================================================
+
+Project Goal
+------------
+Build an end-to-end data science and machine learning project that:
+1. Predicts customer churn.
+2. Provides a RAG-based Q&A system over project/customer-related documents.
+3. Exposes functionality through FastAPI.
+4. Uses experiment tracking.
+5. Is containerized with Docker.
+6. Includes CI/CD through GitHub Actions.
+7. Handles configuration and secrets securely through environment variables.
+
+Technology Stack
+----------------
+- Python 3.12
+- VS Code
+- Git and GitHub
+- Jupyter Notebook
+- pandas
+- NumPy
+- scikit-learn
+- matplotlib
+- seaborn
+- FastAPI
+- Uvicorn
+- Pydantic
+- SQLAlchemy
+- PostgreSQL / psycopg2-binary
+- python-dotenv
+- LangChain
+- sentence-transformers
+- PyTorch
+- pytest
+- pytest-cov
+- Ruff
+- Docker
+- GitHub Actions
+- Vector database for RAG
+- Experiment tracking tool
+
+Project Structure
+-----------------
+project-root/
+|
+|-- data/
+|   |-- raw/
+|   |   `-- Telco-Customer-Churn.csv
+|   `-- processed/
+|
+|-- notebooks/
+|   |-- 01_eda.ipynb
+|   |-- 02_preprocessing.ipynb
+|   |-- 03_model_training.ipynb
+|   `-- 04_model_evaluation.ipynb
+|
+|-- src/
+|   |-- data/
+|   |-- features/
+|   |-- models/
+|   |-- rag/
+|   |-- api/
+|   `-- utils/
+|
+|-- tests/
+|   `-- test_basic.py
+|
+|-- models/
+|
+|-- configs/
+|
+|-- .github/
+|   `-- workflows/
+|
+|-- .env
+|-- .env.example
+|-- .gitignore
+|-- Dockerfile
+|-- pyproject.toml
+|-- README.md
+`-- docker-compose.yml
+
+Dataset
+-------
+Dataset used for the churn prediction portion:
+Telco Customer Churn dataset.
+
+Dataset size:
+- 7043 rows
+- 21 columns in the original dataset
+
+Target:
+- Churn
+
+Target distribution observed during EDA:
+- No: 5174
+- Yes: 1869
+
+Initial EDA Findings
+--------------------
+Missing values:
+- Initially, pandas did not report missing values in the raw string representation.
+- TotalCharges was stored as a string/object-like column.
+- After converting TotalCharges to numeric using pd.to_numeric(..., errors="coerce"),
+  11 missing TotalCharges values were identified.
+
+Duplicate rows:
+- 0 duplicate rows.
+
+Unique customer IDs:
+- 7043 unique customer IDs.
+
+Important data-type observation:
+- tenure: int64
+- MonthlyCharges: float64
+- TotalCharges: string/object before conversion
+- SeniorCitizen: int64
+
+TotalCharges Handling
+---------------------
+TotalCharges should be converted to a numeric type:
+
+df["TotalCharges"] = pd.to_numeric(
+    df["TotalCharges"],
+    errors="coerce"
+)
+
+The 11 resulting missing TotalCharges values correspond to customers with
+tenure = 0.
+
+These rows should not automatically be deleted during EDA. Their treatment
+should be decided during preprocessing.
+
+Conceptual Feature Groups
+--------------------------
+Identifier:
+- customerID
+
+Numerical:
+- tenure
+- MonthlyCharges
+- TotalCharges
+- SeniorCitizen
+
+Categorical:
+- gender
+- Partner
+- Dependents
+- PhoneService
+- MultipleLines
+- InternetService
+- OnlineSecurity
+- OnlineBackup
+- DeviceProtection
+- TechSupport
+- StreamingTV
+- StreamingMovies
+- Contract
+- PaperlessBilling
+- PaymentMethod
+
+Target:
+- Churn
+
+Categorical Churn Findings
+--------------------------
+Churn rates observed from the EDA:
+
+Gender:
+- Female: 26.92%
+- Male: 26.16%
+Observation: very small difference.
+
+Partner:
+- No: 32.96%
+- Yes: 19.66%
+Observation: customers without a partner have higher observed churn.
+
+Dependents:
+- No: 31.28%
+- Yes: 15.45%
+Observation: customers without dependents have higher observed churn.
+
+InternetService:
+- DSL: 18.96%
+- Fiber optic: 41.89%
+- No internet service: 7.40%
+Observation: Fiber optic customers have substantially higher observed churn.
+
+Contract:
+- Month-to-month: 42.71%
+- One year: 11.27%
+- Two year: 2.83%
+Observation: contract type shows one of the strongest relationships with churn.
+
+PaymentMethod:
+- Bank transfer (automatic): 16.71%
+- Credit card (automatic): 15.24%
+- Electronic check: 45.29%
+- Mailed check: 19.11%
+Observation: electronic-check customers have substantially higher observed churn.
+
+TechSupport:
+- No: 41.64%
+- No internet service: 7.40%
+- Yes: 15.17%
+Observation: customers without tech support have higher observed churn.
+
+OnlineSecurity:
+- No: 41.77%
+- No internet service: 7.40%
+- Yes: 14.61%
+Observation: customers without online security have higher observed churn.
+
+Important EDA Interpretation Rule
+----------------------------------
+The above values are observed relationships/correlations in the dataset.
+They should not be interpreted as proof of causation.
+
+For example, a high churn rate for electronic check does not prove that
+changing the payment method will cause churn to decrease.
+
+Numerical EDA
+-------------
+Numerical variables investigated:
+- tenure
+- MonthlyCharges
+- TotalCharges
+- SeniorCitizen
+
+The project should include:
+- describe()
+- histograms
+- boxplots
+- churn-group comparisons
+- correlation matrix
+- correlation heatmap
+- outlier inspection
+
+Recommended code for numerical summary:
+
+df[["tenure", "MonthlyCharges", "TotalCharges"]].describe()
+
+Recommended churn-group comparison:
+
+df.groupby("Churn")[
+    ["tenure", "MonthlyCharges", "TotalCharges"]
+].mean().round(2)
+
+Recommended correlation analysis:
+
+numerical_columns = [
+    "tenure",
+    "MonthlyCharges",
+    "TotalCharges",
+    "SeniorCitizen"
+]
+
+correlation_matrix = df[numerical_columns].corr()
+
+EDA Segmentation
+----------------
+Create tenure groups for analysis:
+
+df["tenure_group"] = pd.cut(
+    df["tenure"],
+    bins=[0, 12, 24, 36, 48, 60, 72],
+    labels=[
+        "0-12",
+        "13-24",
+        "25-36",
+        "37-48",
+        "49-60",
+        "61-72"
+    ],
+    include_lowest=True
+)
+
+Calculate churn rate by tenure group:
+
+tenure_churn_rate = (
+    pd.crosstab(
+        df["tenure_group"],
+        df["Churn"],
+        normalize="index"
+    )["Yes"] * 100
+).round(2)
+
+Monthly charge groups can also be created for EDA:
+
+df["monthly_charge_group"] = pd.cut(
+    df["MonthlyCharges"],
+    bins=[0, 30, 60, 90, 120],
+    labels=[
+        "0-30",
+        "31-60",
+        "61-90",
+        "91-120"
+    ],
+    include_lowest=True
+)
+
+Feature Interaction Analysis
+----------------------------
+Investigate interactions such as:
+- Contract x InternetService
+- Contract x PaymentMethod
+- Other combinations that appear meaningful during EDA
+
+Example:
+
+contract_internet_churn = (
+    df.groupby(
+        ["Contract", "InternetService"],
+        observed=True
+    )["Churn"]
+    .apply(lambda x: (x == "Yes").mean() * 100)
+    .round(2)
+)
+
+Outlier Analysis
+----------------
+Inspect numerical variables using boxplots.
+
+Do not automatically remove outliers simply because they exist.
+Values such as high MonthlyCharges may be legitimate customer values.
+
+Machine Learning Pipeline
+-------------------------
+After EDA, the planned ML workflow is:
+
+1. Data validation
+2. Preprocessing
+3. Train/test split
+4. Feature transformation
+5. Baseline model
+6. Model training
+7. Model evaluation
+8. Hyperparameter tuning
+9. Experiment tracking
+10. Model selection
+11. Model serialization
+12. API integration
+
+Potential ML models:
+- Logistic Regression
+- Decision Tree
+- Random Forest
+- Gradient Boosting
+- Other suitable classification algorithms
+
+Evaluation should include more than accuracy because churn is a
+classification problem with an imbalanced target.
+
+Recommended metrics:
+- Accuracy
+- Precision
+- Recall
+- F1-score
+- ROC-AUC
+- Confusion matrix
+
+RAG System
+----------
+The project also includes a Retrieval-Augmented Generation system.
+
+Goal:
+Allow users to upload multiple documents and ask questions related to those
+documents.
+
+Expected RAG flow:
+
+Documents
+   |
+   v
+Document Upload
+   |
+   v
+Document Parsing
+   |
+   v
+Text Cleaning
+   |
+   v
+Chunking
+   |
+   v
+Embedding Model
+   |
+   v
+Vector Database
+   |
+   v
+Similarity Search
+   |
+   v
+Relevant Chunks
+   |
+   v
+LLM
+   |
+   v
+Grounded Answer + Sources
+
+Important RAG requirements:
+- Support multiple uploaded documents.
+- Store document chunks and embeddings in a vector database.
+- Retrieve relevant chunks for user queries.
+- Restrict answers to retrieved/contextual information.
+- Reduce hallucination by using grounding and source references.
+- Maintain document-level/user-level security.
+- Prevent one user's documents from being exposed to another user.
+- Validate uploaded files.
+- Avoid storing secrets in source code.
+- Log useful metadata without exposing sensitive document content.
+
+RAG Security
+------------
+Security should include:
+- Authentication/authorization where applicable.
+- User/document ownership checks.
+- Isolated document namespaces or metadata filters.
+- Secure environment variables.
+- Input validation.
+- File type and size validation.
+- Safe temporary file handling.
+- No secrets committed to Git.
+- No unnecessary sensitive content in logs.
+
+FastAPI
+-------
+FastAPI will expose the application functionality.
+
+Possible API areas:
+
+POST /documents/upload
+- Upload one or multiple documents.
+
+POST /rag/query
+- Ask a question against authorized documents.
+
+POST /predict
+- Send customer information and receive churn prediction.
+
+GET /health
+- Health check endpoint.
+
+The exact endpoint design can be refined during implementation.
+
+Environment Variables
+---------------------
+Use a .env file for local secrets/configuration.
+
+Example .env:
+
+APP_ENV=development
+DATABASE_URL=your_database_url
+VECTOR_DB_URL=your_vector_database_url
+LLM_API_KEY=your_api_key
+
+Never commit the actual .env file.
+
+Create .env.example with placeholders:
+
+APP_ENV=development
+DATABASE_URL=
+VECTOR_DB_URL=
+LLM_API_KEY=
+
+Git should ignore:
+.env
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+data/raw/
+models/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+Project Configuration
+---------------------
+The project uses pyproject.toml.
+
+The project package has been installed in editable mode and verified with:
+
+python -m pip show churn-prediction-qa
+
+The editable project location is:
+
+C:\ProjectsOrgnisation-churn-prediction-and-Q-A
+
+Python Environment
+------------------
+Project Python version:
+- Python 3.12.10
+
+The virtual environment executable was verified with:
+
+import sys
+
+print(sys.version)
+print(sys.executable)
+
+Expected executable location:
+
+C:\ProjectsOrgnisation-churn-prediction-and-Q-A\.venv\Scripts\python.exe
+
+Testing
+-------
+pytest is configured with tests as the test path.
+
+Initial test run:
+- 0 tests were collected before test_basic.py existed.
+
+After adding tests/test_basic.py:
+- 2 tests passed.
+
+Current verification command:
+
+pytest
+
+Expected result at this stage:
+
+2 passed
+
+Linting
+-------
+Ruff is used for code quality.
+
+Verification command:
+
+ruff check .
+
+Current result:
+- All checks passed.
+
+Git and GitHub
+--------------
+Repository:
+Orgnisation-churn-prediction-and-Q-A
+
+The local repository uses the main branch.
+
+Remote repository was configured and the initial project was pushed successfully.
+
+Typical workflow:
+
+git status
+git add .
+git commit -m "Meaningful commit message"
+git push
+
+CI/CD
+-----
+GitHub Actions should be used to automate:
+- Dependency installation
+- Ruff checks
+- pytest
+- Optional build checks
+- Docker image build
+- Deployment workflow
+
+A workflow can be placed under:
+
+.github/workflows/
+
+Example future workflow:
+ci.yml
+
+The CI pipeline should fail when tests or linting fail.
+
+Docker
+------
+The application should eventually be containerized.
+
+Expected components:
+- Dockerfile
+- docker-compose.yml if multiple services are needed
+- FastAPI application
+- ML model
+- RAG components
+- Vector database
+- PostgreSQL if required
+
+Deployment
+----------
+The final project should support deployment to a cloud environment.
+
+Deployment design should include:
+- Environment variables/secrets
+- Container image
+- API service
+- Database
+- Vector database
+- Logging
+- Health checks
+- CI/CD deployment
+
+End-to-End Development Roadmap
+-------------------------------
+Phase 1: Project Setup
+- Create project folder
+- Create virtual environment
+- Install Python 3.12
+- Configure VS Code
+- Initialize Git
+- Create .gitignore
+- Create pyproject.toml
+- Install project in editable mode
+- Configure Ruff and pytest
+
+Phase 2: Data
+- Add dataset to data/raw/
+- Load dataset
+- Validate schema
+- Perform EDA
+
+Phase 3: EDA
+- Data quality
+- Missing values
+- Duplicates
+- Target distribution
+- Numerical analysis
+- Categorical analysis
+- Churn-rate analysis
+- Correlation
+- Outliers
+- Feature interactions
+- EDA conclusions
+
+Phase 4: Preprocessing
+- Handle missing values
+- Encode categorical variables
+- Scale appropriate numerical variables
+- Separate features and target
+- Train/test split
+- Build reproducible preprocessing pipeline
+
+Phase 5: ML
+- Baseline model
+- Multiple models
+- Cross-validation
+- Evaluation
+- Hyperparameter tuning
+- Model selection
+- Save model artifact
+
+Phase 6: Experiment Tracking
+- Track parameters
+- Track metrics
+- Track model versions
+- Track artifacts
+- Compare experiments
+
+Phase 7: RAG
+- Document upload
+- Parsing
+- Chunking
+- Embeddings
+- Vector database
+- Retrieval
+- Prompt construction
+- Grounded generation
+- Source citations
+- Security
+
+Phase 8: API
+- FastAPI
+- Prediction endpoint
+- Document upload endpoint
+- RAG query endpoint
+- Health endpoint
+- Request/response schemas
+- Error handling
+
+Phase 9: Docker
+- Dockerfile
+- Build image
+- Run container
+- Environment configuration
+- Service dependencies
+
+Phase 10: CI/CD
+- GitHub Actions
+- Test
+- Lint
+- Build
+- Docker image
+- Deployment
+
+Phase 11: Production Readiness
+- Authentication
+- Authorization
+- Logging
+- Monitoring
+- Error handling
+- Data security
+- Model versioning
+- RAG security
+- Documentation
+
+Current Project Status
+----------------------
+Completed:
+- Git installed and repository initialized.
+- GitHub remote configured.
+- Initial push to GitHub completed.
+- Project folder renamed to:
+  C:\ProjectsOrgnisation-churn-prediction-and-Q-A
+- Python 3.12.10 available.
+- Virtual environment using Python 3.12.10 verified.
+- pyproject.toml created and project installed in editable mode.
+- pytest configured.
+- 2 basic tests passing.
+- Ruff checks passing.
+- Dataset added under data/raw/.
+- 01_eda.ipynb created.
+- Initial EDA completed.
+- Missing TotalCharges issue identified.
+- Categorical churn analysis completed.
+
+Current EDA conclusions so far:
+- Dataset contains 7043 customers.
+- 1869 customers churned and 5174 did not churn.
+- There are 0 duplicate rows.
+- There are 7043 unique customer IDs.
+- 11 TotalCharges values become missing after numeric conversion.
+- Those 11 customers have tenure = 0.
+- Contract, InternetService, PaymentMethod, TechSupport, OnlineSecurity,
+  Partner, and Dependents show meaningful observed differences in churn rates.
+- Gender shows only a small observed difference in churn rate.
+
+Next Immediate Steps
+--------------------
+1. Complete numerical EDA.
+2. Complete tenure-group churn analysis.
+3. Complete MonthlyCharges-group churn analysis.
+4. Complete correlation analysis.
+5. Complete feature-interaction analysis.
+6. Complete outlier inspection.
+7. Write final EDA conclusions.
+8. Create 02_preprocessing.ipynb.
+9. Build a reproducible preprocessing pipeline.
+10. Start baseline ML modeling.
