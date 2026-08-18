@@ -53,3 +53,10 @@ def get_qa_engine() -> QAEngine:
     if qa_engine is None:
         qa_engine = QAEngine()
     return qa_engine
+
+
+def refresh_knowledge_base() -> None:
+    """Reload the on-disk index into the already-loaded QA engine, if one exists,
+    so newly ingested documents are queryable without restarting the process."""
+    if qa_engine is not None:
+        qa_engine.retriever.reload_index()

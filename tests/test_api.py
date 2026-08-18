@@ -1,8 +1,16 @@
 from fastapi.testclient import TestClient
 
 from api.main import app
+from rag import ingest as rag_ingest
+from rag.qa import refresh_knowledge_base
 
 client = TestClient(app)
+
+
+def _restore_knowledge_base():
+    """Re-ingest and refresh the live index, undoing any test uploads."""
+    rag_ingest.run()
+    refresh_knowledge_base()
 
 BASE_PAYLOAD = {
     "gender": "Female", "SeniorCitizen": 0, "Partner": "Yes", "Dependents": "No",
@@ -72,3 +80,63 @@ def test_qa_declines_out_of_scope_question():
 def test_qa_rejects_empty_question():
     response = client.post("/qa", json={"question": ""})
     assert response.status_code == 422
+
+
+def test_upload_document_and_query_live():
+    test_file = rag_ingest.KNOWLEDGE_BASE_DIR / "_test_upload.md"
+    try:
+        content = b"# Test Fact\n\nThe test canary phrase is zorblatt-nine."
+        response = client.post(
+            "/documents/upload",
+            files=[("files", ("_test_upload.md", content, "text/markdown"))],
+        )
+        assert response.status_code == 200
+        assert response.json()["uploaded_files"] == ["_test_upload.md"]
+
+        qa_response = client.post("/qa", json={"question": "What is the test canary phrase?"})
+        assert qa_response.status_code == 200
+        assert "zorblatt" in qa_response.json()["answer"].lower()
+    finally:
+        test_file.unlink(missing_ok=True)
+        _restore_knowledge_base()
+
+
+def test_upload_sanitizes_path_traversal_filename():
+    response = client.post(
+        "/documents/upload",
+        files=[("files", ("../../escape_attempt.md", b"content", "text/markdown"))],
+    )
+    assert response.status_code == 200
+
+    saved_name = response.json()["uploaded_files"][0]
+    assert "/" not in saved_name and ".." not in saved_name
+
+    saved_path = rag_ingest.KNOWLEDGE_BASE_DIR / saved_name
+    assert saved_path.resolve().parent == rag_ingest.KNOWLEDGE_BASE_DIR.resolve()
+
+    saved_path.unlink(missing_ok=True)
+    _restore_knowledge_base()
+
+
+def test_upload_rejects_disallowed_extension():
+    response = client.post(
+        "/documents/upload",
+        files=[("files", ("malware.exe", b"binary", "application/octet-stream"))],
+    )
+    assert response.status_code == 400
+
+
+def test_upload_rejects_oversized_file():
+    response = client.post(
+        "/documents/upload",
+        files=[("files", ("big.txt", b"x" * (6 * 1024 * 1024), "text/plain"))],
+    )
+    assert response.status_code == 400
+
+
+def test_upload_rejects_invalid_utf8():
+    response = client.post(
+        "/documents/upload",
+        files=[("files", ("bad.txt", b"\xff\xfe\x00\x01", "text/plain"))],
+    )
+    assert response.status_code == 400

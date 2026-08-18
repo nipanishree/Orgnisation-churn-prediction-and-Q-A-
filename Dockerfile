@@ -24,10 +24,12 @@ RUN pip install --no-cache-dir --no-deps .
 
 COPY models/ models/
 COPY data/vector_store/ data/vector_store/
+COPY documents/knowledge_base/ documents/knowledge_base/
 
 ENV PYTHONPATH=/app \
     MODEL_PATH=/app/models \
     VECTOR_STORE_PATH=/app/data/vector_store \
+    KNOWLEDGE_BASE_PATH=/app/documents/knowledge_base \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HF_HUB_OFFLINE=1 \

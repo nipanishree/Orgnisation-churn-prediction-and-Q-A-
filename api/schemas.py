@@ -74,3 +74,9 @@ class QAResponse(BaseModel):
     question: str
     answer: str
     sources: list[SourceChunk]
+
+
+class UploadResponse(BaseModel):
+    uploaded_files: list[str]
+    num_documents: int
+    num_chunks: int
