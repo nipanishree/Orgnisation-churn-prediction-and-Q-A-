@@ -80,3 +80,27 @@ class UploadResponse(BaseModel):
     uploaded_files: list[str]
     num_documents: int
     num_chunks: int
+
+
+class BatchPredictRow(BaseModel):
+    row: int
+    customer_id: str | None = None
+    churn_probability: float
+    churn: bool
+    actual_churn: str | None = None
+
+
+class BatchPredictSummary(BaseModel):
+    total_rows: int
+    predicted_churn_count: int
+    predicted_churn_rate: float
+    threshold: float
+    actual_churn_rate: float | None = None
+    accuracy: float | None = None
+    precision: float | None = None
+    recall: float | None = None
+
+
+class BatchPredictResponse(BaseModel):
+    summary: BatchPredictSummary
+    rows: list[BatchPredictRow]

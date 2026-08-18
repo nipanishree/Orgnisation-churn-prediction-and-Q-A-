@@ -32,5 +32,15 @@ class ChurnPredictor:
             "threshold": round(self.threshold, 4),
         }
 
+    def predict_batch(self, df: pd.DataFrame) -> pd.DataFrame:
+        X = preprocess(df, self.scaler, self.feature_columns)
+        probabilities = self.model.predict_proba(X)[:, 1]
+        return pd.DataFrame(
+            {
+                "churn_probability": probabilities.round(4),
+                "churn": probabilities >= self.threshold,
+            }
+        )
+
 
 predictor = ChurnPredictor()

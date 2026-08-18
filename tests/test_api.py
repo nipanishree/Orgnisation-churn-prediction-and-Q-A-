@@ -140,3 +140,55 @@ def test_upload_rejects_invalid_utf8():
         files=[("files", ("bad.txt", b"\xff\xfe\x00\x01", "text/plain"))],
     )
     assert response.status_code == 400
+
+
+def test_serves_static_ui():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "Churn Console" in response.text
+
+
+def _sample_dataset_csv(n=20, with_churn=True):
+    import pandas as pd
+
+    df = pd.read_csv("data/raw/Telco-Customer-Churn.csv").head(n)
+    if not with_churn:
+        df = df.drop(columns=["Churn"])
+    return df.to_csv(index=False).encode("utf-8")
+
+
+def test_predict_batch_with_labels_computes_accuracy():
+    response = client.post(
+        "/predict/batch", files=[("file", ("sample.csv", _sample_dataset_csv(30), "text/csv"))]
+    )
+    assert response.status_code == 200
+
+    body = response.json()
+    assert body["summary"]["total_rows"] == 30
+    assert body["summary"]["accuracy"] is not None
+    assert len(body["rows"]) == 30
+    assert body["rows"][0]["customer_id"] == "7590-VHVEG"
+
+
+def test_predict_batch_without_labels_omits_accuracy():
+    response = client.post(
+        "/predict/batch",
+        files=[("file", ("sample.csv", _sample_dataset_csv(10, with_churn=False), "text/csv"))],
+    )
+    assert response.status_code == 200
+    assert response.json()["summary"]["accuracy"] is None
+
+
+def test_predict_batch_rejects_missing_columns():
+    response = client.post(
+        "/predict/batch", files=[("file", ("bad.csv", b"a,b,c\n1,2,3", "text/csv"))]
+    )
+    assert response.status_code == 400
+    assert "missing required columns" in response.json()["detail"]
+
+
+def test_predict_batch_rejects_non_csv():
+    response = client.post(
+        "/predict/batch", files=[("file", ("data.txt", b"hello", "text/plain"))]
+    )
+    assert response.status_code == 400
