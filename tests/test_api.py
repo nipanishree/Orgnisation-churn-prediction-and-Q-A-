@@ -148,26 +148,43 @@ def test_serves_static_ui():
     assert "Churn Console" in response.text
 
 
-def _sample_dataset_csv(n=20, with_churn=True):
+LOW_RISK_PAYLOAD = dict(
+    BASE_PAYLOAD, tenure=60, Contract="Two year",
+    PaymentMethod="Credit card (automatic)", InternetService="No",
+    MultipleLines="No", OnlineSecurity="No internet service",
+    OnlineBackup="No internet service", DeviceProtection="No internet service",
+    TechSupport="No internet service", StreamingTV="No internet service",
+    StreamingMovies="No internet service", PaperlessBilling="No",
+    MonthlyCharges=20.05, TotalCharges=1200.0,
+)
+
+
+def _sample_dataset_csv(n=10, with_churn=True, with_customer_id=True):
     import pandas as pd
 
-    df = pd.read_csv("data/raw/Telco-Customer-Churn.csv").head(n)
-    if not with_churn:
-        df = df.drop(columns=["Churn"])
-    return df.to_csv(index=False).encode("utf-8")
+    # Alternate high-risk and low-risk profiles so predictions aren't uniform.
+    rows = []
+    for i in range(n):
+        row = dict(BASE_PAYLOAD if i % 2 == 0 else LOW_RISK_PAYLOAD)
+        if with_customer_id:
+            row["customerID"] = f"TEST-{i:04d}"
+        if with_churn:
+            row["Churn"] = "Yes" if i % 2 == 0 else "No"
+        rows.append(row)
+    return pd.DataFrame(rows).to_csv(index=False).encode("utf-8")
 
 
 def test_predict_batch_with_labels_computes_accuracy():
     response = client.post(
-        "/predict/batch", files=[("file", ("sample.csv", _sample_dataset_csv(30), "text/csv"))]
+        "/predict/batch", files=[("file", ("sample.csv", _sample_dataset_csv(10), "text/csv"))]
     )
     assert response.status_code == 200
 
     body = response.json()
-    assert body["summary"]["total_rows"] == 30
+    assert body["summary"]["total_rows"] == 10
     assert body["summary"]["accuracy"] is not None
-    assert len(body["rows"]) == 30
-    assert body["rows"][0]["customer_id"] == "7590-VHVEG"
+    assert len(body["rows"]) == 10
+    assert body["rows"][0]["customer_id"] == "TEST-0000"
 
 
 def test_predict_batch_without_labels_omits_accuracy():
