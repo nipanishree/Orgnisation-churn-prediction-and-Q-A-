@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 import faiss
@@ -7,8 +8,10 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-KNOWLEDGE_BASE_DIR = PROJECT_ROOT / "documents" / "knowledge_base"
-VECTOR_STORE_DIR = PROJECT_ROOT / "data" / "vector_store"
+KNOWLEDGE_BASE_DIR = Path(
+    os.environ.get("KNOWLEDGE_BASE_PATH", PROJECT_ROOT / "documents" / "knowledge_base")
+)
+VECTOR_STORE_DIR = Path(os.environ.get("VECTOR_STORE_PATH", PROJECT_ROOT / "data" / "vector_store"))
 
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 CHUNK_SIZE = 350

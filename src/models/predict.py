@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 import joblib
@@ -7,7 +8,7 @@ import pandas as pd
 from features.preprocessing import preprocess
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-MODELS_DIR = PROJECT_ROOT / "models"
+MODELS_DIR = Path(os.environ.get("MODEL_PATH", PROJECT_ROOT / "models"))
 
 
 class ChurnPredictor:
